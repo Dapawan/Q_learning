@@ -10,7 +10,9 @@ import EnvJeu
 import matplotlib.pyplot
 import copy
 
+
 EPISODES = 10000
+play = False
 
 class DQNAgent:
     def __init__(self, state_size, action_size):
@@ -18,7 +20,11 @@ class DQNAgent:
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
         self.gamma = 0.95    # discount rate
-        self.epsilon = 0.0#1.0  # exploration rate
+        self.epsilon = 1.0  # exploration rate
+        if(play):
+            self.epsilon = 0.0
+        else:
+            self.epsilon = 1.0
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
         self.learning_rate = 0.001
@@ -27,7 +33,7 @@ class DQNAgent:
     def _build_model(self):
         # Neural Net for Deep-Q learning Model
         model = Sequential()
-        model.add(Dense(40, input_dim=self.state_size, activation='relu'))
+        model.add(Dense(24, input_dim=self.state_size, activation='relu'))
         model.add(Dense(24, activation='relu'))
         model.add(Dense(24, activation='relu'))
         model.add(Dense(self.action_size, activation='linear'))
@@ -42,6 +48,8 @@ class DQNAgent:
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
         act_values = self.model.predict(state)
+        if(play):
+            print("Reward esperee :" + str(np.max(act_values[0])))
         return np.argmax(act_values[0])  # returns action
 
     def replay(self, batch_size):
@@ -70,7 +78,7 @@ if __name__ == "__main__":
     state_size = 9#env.observation_space.shape[0]
     action_size = 9#env.action_space.n
     agent = DQNAgent(state_size, action_size)
-    agent.load("./morpion-dqn_vs_self_v1.h5")
+    #agent.load("./morpion-dqn_vs_self_v2.h5")
 
     #On enregistre quelques parties
     #for i in range(20):
@@ -109,39 +117,42 @@ if __name__ == "__main__":
     #            env.monMorpion.enregistrerPartie(np.asarray(listeMove),'MES_PARTIES_1_vs_self.txt',i)
 
     #On joue quelques parties
-    for i in range(20):
-        done = False
-        listeMove = []
-        state = env.reset()
-        print("Partie n° " + str(i))
-        env.render()
-        state = np.reshape(state, [1, state_size])
-        while(done == False):
-            action = agent.act(state)
-            next_state, reward, done = env.step(action,True,False)
+    if(play):
+        for i in range(20):
+            done = False
+            listeMove = []
+            state = env.reset()
+            print("Partie n° " + str(i))
+            env.render()
+            state = np.reshape(state, [1, state_size])
+            while(done == False):
+                action = agent.act(state)
+                next_state, reward, done = env.step(action,True,False)
             
-            #On affiche le move de l'IA
-            env.render()
-            if(reward == -50):
-                #L'IA fait un mauvais move
-                print("Mauvais move IA")
-                continue
+                #On affiche le move de l'IA
+                env.render()
+                if(reward == env.rewardBadPlay):
+                    #L'IA fait un mauvais move
+                    print("Mauvais move IA")
+                    continue
 
 
-            #On recup le move user
-            action = int(input())
-            next_state, reward, done = env.step(action,False,False)
-            #On affiche le move de l'IA
-            env.render()
+                #On recup le move user
+                action = int(input())
+                next_state, reward, done = env.step(action,False,False)
+                #On affiche le move de l'IA
+                env.render()
 
-            next_state = np.reshape(next_state, [1, state_size])
-            state = next_state
+                #On get les pieces J1
+                next_state = env.monMorpion.getListePionJ_UN()
+                next_state = np.reshape(next_state, [1, state_size])
+                state = next_state
         
             
 
 
     scoreTot = 0
-    batch_size = (10 * 81)
+    batch_size = (2 * 81)
     cnt = 0
     moyTemp = 0
     cntVictoireIA_temp = 0
@@ -177,7 +188,7 @@ if __name__ == "__main__":
                 ax1.set_ylabel('Moyenne score IA')
                 ax2.set_ylabel('Nbr victoire IA')
                 #matplotlib.pyplot.grid(True)
-                matplotlib.pyplot.savefig('Train__vs_self_v1.png')
+                matplotlib.pyplot.savefig('Train__self_v3.png')
                 matplotlib.pyplot.close()
 
             except :
@@ -191,12 +202,12 @@ if __name__ == "__main__":
             next_state, reward, done = env.step(action,True,False)
             scoreTot += reward
 
-            if(reward == 100):
+            if(reward == env.rewardWin):
                 flagWin = True
 
             #reward = copy.copy(scoreTot)
             next_state = np.reshape(next_state, [1, state_size])
-            agent.memorize(state, action, reward, copy.copy(next_state), done)
+            agent.memorize(copy.copy(state), copy.copy(action), copy.copy(reward), copy.copy(next_state), copy.copy(done))
             state = next_state
 
             if done:
@@ -206,7 +217,7 @@ if __name__ == "__main__":
                 #print("episode : " + str(e) + "/" + str(EPISODES) + " reward : " + str(scoreTot))
                 if(flagWin):
                     cntVictoireIA_temp += 1
-                    agent.save("./morpion-dqn_vs_self_v1.h5")
+                    agent.save("./morpion-dqn_vs_self_v3.h5")
                 break
             if len(agent.memory) > batch_size:
                 #print("DEBUT Replay")
@@ -214,20 +225,27 @@ if __name__ == "__main__":
                 #agent.memory.clear()
                 #print("FIN Replay")
 
-            if(reward == -50):
+            if(reward == env.rewardBadPlay):
                 done = True
+                continue
 
 
             #On gère le jeu adverse
             state = env.monMorpion.getListePionJ_DEUX()
             state = np.reshape(state, [1, state_size])
+            epsilonOld = agent.epsilon
+            #Permet de changer un peu les move
+            agent.epsilon = 0.5
             action = agent.act(state)
+            #On remet la valeur save
+            agent.epsilon = epsilonOld
             next_state, reward, done = env.step(action,False,False)
             next_state = np.reshape(next_state, [1, state_size])
-            agent.memorize(state, action, reward, copy.copy(next_state), done)
+            agent.memorize(copy.copy(state), copy.copy(action), copy.copy(reward), copy.copy(next_state), copy.copy(done))
 
-            if(reward == -50):
+            if(reward == env.rewardBadPlay):
                 done = True
+                continue
 
             next_state = env.monMorpion.getListePionJ_UN()
             #conversion du state

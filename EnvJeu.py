@@ -10,6 +10,10 @@ class EnvJeu(object):
     actionIASimulee = numpy.ndarray(shape=(9, 1),
                     dtype=numpy.float32)
 
+    rewardWin = 100
+    rewardWellPLay = 1
+    rewardBadPlay = -200
+    rewardLose = -100
     #Constructeur
     #def __init__(self):
     #    #On crée l'objet morpion pour gérer la partie
@@ -35,13 +39,13 @@ class EnvJeu(object):
                 #On max l'index du move
                 self.actionIASimulee[moveChoisi] = 1.0
                 #On fait le move
-                result = self.monMorpion.tourJ_DEUX(copy.copy(self.actionIASimulee))
+                self.monMorpion.tourJ_DEUX(copy.copy(self.actionIASimulee))
 
-                if(result == 1):
-                    #L'IA perd la partie
-                    return self.monMorpion.getListePionJ_UN(), -10, True
+            #On check la fin de partie
             self.monMorpion.verificationFinPartie()
-            return self.monMorpion.getListePionJ_DEUX(), 10, self.monMorpion.finPartie
+            return self.monMorpion.getListePionJ_DEUX(), 0, self.monMorpion.finPartie
+
+
         #On fait jouer l'IA
         self.actionIASimulee = numpy.zeros(9)
         self.actionIASimulee[action] = 1.0
@@ -52,27 +56,25 @@ class EnvJeu(object):
         #On gère le score
         if(result == -2):
             self.monMorpion.finPartie = False
-            #On passe à la partie suivante
+            #On passe à la partie suivante --> Mauvais move
             if(isJ1 == True):
-                return self.monMorpion.getListePionJ_UN(), -50, True
+                return self.monMorpion.getListePionJ_UN(), self.rewardBadPlay, True
             else:
-                return self.monMorpion.getListePionJ_DEUX(), -50, True
+                return self.monMorpion.getListePionJ_DEUX(), self.rewardBadPlay, True
         #partie gagnée
         elif(result == 1):
             if(isJ1 == True):
-                return self.monMorpion.getListePionJ_UN(), 100, True
+                return self.monMorpion.getListePionJ_UN(), self.rewardWin, True
             else:
-                return self.monMorpion.getListePionJ_DEUX(), 100, True
+                return self.monMorpion.getListePionJ_DEUX(), self.rewardWin, True
 
-        
 
         #On retourne l'emplacement des pièces actuelles
         self.monMorpion.verificationFinPartie()
         if(isJ1 == True):
-
-            return self.monMorpion.getListePionJ_UN(), 10, self.monMorpion.finPartie
+            return self.monMorpion.getListePionJ_UN(), self.rewardWellPLay, self.monMorpion.finPartie
         else:
-            return self.monMorpion.getListePionJ_DEUX(), 10, self.monMorpion.finPartie
+            return self.monMorpion.getListePionJ_DEUX(), self.rewardWellPLay, self.monMorpion.finPartie
 
     #Fonction pour afficher les résultats
     def render(self):
